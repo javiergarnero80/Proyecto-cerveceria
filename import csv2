@@ -1,0 +1,120 @@
+import csv
+import os
+from geopy.geocoders import Nominatim
+
+# La línea de código from geopy.geocoders import Nominatim importa la clase Nominatim del módulo geocoders de la biblioteca geopy.
+
+def obtener_latitud_longitud(ciudad):
+    """
+    Obtiene las coordenadas de latitud y longitud de una ciudad utilizando el servicio de geocodificación Nominatim.
+    
+    Args:
+        ciudad (str): El nombre de la ciudad.
+        
+    Returns:
+        Tuple[float, float]: Las coordenadas de latitud y longitud de la ciudad, o (None, None) si no se encontró la ubicación.
+    """
+    geolocator = Nominatim(user_agent="tu_app")
+
+    try:
+        ubicacion = geolocator.geocode(ciudad)
+
+        if ubicacion:
+            latitud = ubicacion.latitude
+            longitud = ubicacion.longitude
+            return latitud, longitud
+        else:
+            return None, None
+    except Exception as e:
+        print(f"Error al obtener la ubicación: {str(e)}")
+        return None, None
+
+def obtener_estado_pais(latitud, longitud):
+    """
+    Obtiene el estado y el país correspondientes a unas coordenadas de latitud y longitud utilizando el servicio de geocodificación inversa Nominatim.
+    
+    Args:
+        latitud (float): La latitud de la ubicación.
+        longitud (float): La longitud de la ubicación.
+        
+    Returns:
+        Tuple[str, str]: El estado y el país de la ubicación, o (None, None) si no se pudo obtener la información.
+    """
+    geolocator = Nominatim(user_agent="tu_app")
+
+    try:
+        ubicacion = geolocator.reverse(f"{latitud}, {longitud}")
+
+        if ubicacion:
+            direccion = ubicacion.raw.get('address', {})
+            estado = direccion.get('state', '')
+            pais = direccion.get('country', '')
+            return estado, pais
+        else:
+            return None, None
+    except Exception as e:
+        print(f"Error al obtener el estado y país: {str(e)}")
+        return None, None
+
+def guardar_resultado(nombre_archivo, nombre_cerveceria, ciudad, estado, pais, latitud, longitud):
+    """
+    Guarda un resultado en el archivo CSV especificado.
+    
+    Args:
+        nombre_archivo (str): El nombre del archivo CSV donde se guardarán los resultados.
+        nombre_cerveceria (str): El nombre de la cervecería.
+        ciudad (str): El nombre de la ciudad.
+        estado (str): El estado de la ubicación.
+        pais (str): El país de la ubicación.
+        latitud (float): La latitud de la ubicación.
+        longitud (float): La longitud de la ubicación.
+    """
+    with open(nombre_archivo, 'a', newline='', encoding='utf-8') as archivo:
+        escritor_csv = csv.writer(archivo)
+        escritor_csv.writerow([nombre_cerveceria, ciudad, estado, pais, latitud, longitud])
+
+def main():
+    # ruta de lectura archivo datos.csv
+    archivo_csv = '/home/jlinux/Escritorio/datos.csv'
+    archivo_resultados = 'resultados.csv'
+
+    # Generar el nombre de archivo único
+    nombre_archivo = archivo_resultados
+    contador = 1
+    while os.path.isfile(nombre_archivo):
+        nombre_archivo = f"resultados_v{contador}.csv"
+        contador += 1
+
+    # Agregar encabezado al archivo de resultados solo si el archivo está vacío
+    with open(nombre_archivo, 'a', newline='', encoding='utf-8') as archivo:
+        if archivo.tell() == 0:
+            escritor_csv = csv.writer(archivo)
+            escritor_csv.writerow(['Nombre cerveceria', 'Ciudad', 'Estado', 'Pais', 'Latitud', 'Longitud'])
+
+    with open(archivo_csv, 'r', encoding='utf-8') as archivo:
+        lector_csv = csv.reader(archivo)
+
+        # Omitir la primera fila (encabezado) del archivo CSV
+        next(lector_csv)
+
+        for fila in lector_csv:
+            nombre_cerveceria = fila[0]
+            ciudad = fila[1]
+
+            latitud, longitud = obtener_latitud_longitud(ciudad)
+
+            if latitud is not None and longitud is not None:
+                print(f"La latitud y longitud de {nombre_cerveceria}, {ciudad} son: {latitud}, {longitud}")
+                estado_obtenido, pais_obtenido = obtener_estado_pais(latitud, longitud)
+                if estado_obtenido is not None:
+                    print(f"El estado de {ciudad} es: {estado_obtenido}")
+                    guardar_resultado(nombre_archivo, nombre_cerveceria, ciudad, estado_obtenido, pais_obtenido, latitud, longitud)
+                else:
+                    print(f"No se pudo obtener el estado para {ciudad}")
+                    guardar_resultado(nombre_archivo, nombre_cerveceria, ciudad, "", "", latitud, longitud)
+            else:
+                print(f"No se encontraron datos para {nombre_cerveceria}, {ciudad}")
+                guardar_resultado(nombre_archivo, nombre_cerveceria, ciudad, "", "", "N/A", "N/A")
+
+if __name__ == "__main__":
+    main()
